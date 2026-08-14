@@ -1,12 +1,17 @@
 import os
-from flask import Flask, send_file
+from flask import Flask, send_file, redirect
 
 app = Flask(__name__)
 
-@app.route("/")
-@app.route("/erina.html")
+# Primary route serving the file
+@app.route("/erina")
 def serve_erina():
     return send_file("erina.html")
+
+# Redirect /erina.html to /erina
+@app.route("/erina.html")
+def redirect_erina():
+    return redirect("/erina", code=301)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
