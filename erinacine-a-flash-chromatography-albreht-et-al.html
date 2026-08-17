@@ -82,28 +82,30 @@
             padding: 0 24px;
         }
 
-        i {
-            font-style: italic;
+        /* Specification Section Formatting */
+        .spec-group {
+            margin-bottom: 2.5rem;
         }
 
-        /* Spec Table Styling */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 1.5rem;
-        }
-
-        th, td {
-            text-align: left;
-            padding: 10px 14px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        th {
-            font-size: 1.05rem;
-            font-weight: bold;
+        .spec-group h2 {
+            font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+            font-size: 1.2rem;
+            font-weight: 700;
             color: #1c1d21;
             border-bottom: 2px solid #243b53;
+            padding-bottom: 4px;
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        .spec-group ul {
+            margin: 0;
+            padding-left: 0;
+            list-style-type: none;
+        }
+
+        .spec-group li {
+            margin-bottom: 8px;
         }
 
         sup {
@@ -114,7 +116,8 @@
 
         /* Source & License Section */
         .references-section {
-            padding-top: 0.5rem;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 1.5rem;
             font-size: 0.9rem;
             color: #333333;
             line-height: 1.6;
@@ -173,104 +176,26 @@
     <div class="line-3d"></div>
 
     <main class="content">
-        <table>
-            <thead>
-                <tr>
-                    <th>Parameter</th>
-                    <th>Specification</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Chromatography mode</td>
-                    <td>Normal-phase (NP) flash chromatography</td>
-                </tr>
-                <tr>
-                    <td>Purpose</td>
-                    <td>Fractionate the crude <i>H. erinaceus</i> extract and collect the fraction enriched in erinacine A</td>
-                </tr>
-                <tr>
-                    <td>Instrument</td>
-                    <td>PuriFlash 5.250 system, Interchim, Montluçon, France</td>
-                </tr>
-                <tr>
-                    <td>Software</td>
-                    <td>IntersoftX, version 10.19.347.11</td>
-                </tr>
-                <tr>
-                    <td>Stationary phase</td>
-                    <td>PuriFlash silica cartridge</td>
-                </tr>
-                <tr>
-                    <td>Silica</td>
-                    <td>High-capacity silica</td>
-                </tr>
-                <tr>
-                    <td>Silica particle size</td>
-                    <td>15 µm spherical particles</td>
-                </tr>
-                <tr>
-                    <td>Pore size</td>
-                    <td>60 Å</td>
-                </tr>
-                <tr>
-                    <td>Silica cartridge loading</td>
-                    <td>25 g</td>
-                </tr>
-                <tr>
-                    <td>Mobile phase</td>
-                    <td>Ethyl acetate : acetonitrile = 2:8 (v/v)</td>
-                </tr>
-                <tr>
-                    <td>Elution</td>
-                    <td>Isocratic</td>
-                </tr>
-                <tr>
-                    <td>Flow rate</td>
-                    <td>5 mL/min</td>
-                </tr>
-                <tr>
-                    <td>Total run time</td>
-                    <td>20 min</td>
-                </tr>
-                <tr>
-                    <td>Injection volume</td>
-                    <td>3 mL crude extract</td>
-                </tr>
-                <tr>
-                    <td>UV monitoring</td>
-                    <td>340 nm, with spectra acquired from 200–800 nm</td>
-                </tr>
-                <tr>
-                    <td>ELSD monitoring</td>
-                    <td>ELSD at 40 °C</td>
-                </tr>
-                <tr>
-                    <td>Fraction triggering</td>
-                    <td>UV detector threshold of 10 mAU</td>
-                </tr>
-                <tr>
-                    <td>Fractions collected</td>
-                    <td>Four fractions, designated #1–#4</td>
-                </tr>
-                <tr>
-                    <td>Erinacine-A-rich fraction</td>
-                    <td>Fraction #3</td>
-                </tr>
-                <tr>
-                    <td>Scale-up/repetition</td>
-                    <td>Fractions from six consecutive analyses were pooled; solvent was removed under nitrogen and residue reconstituted in 2 mL of 70% aqueous ethanol</td>
-                </tr>
-                <tr>
-                    <td>Total flash runs</td>
-                    <td>85 fractionation runs</td>
-                </tr>
-            </tbody>
-        </table>
+        <div class="spec-group">
+            <h2>Specification</h2>
+            <ul>
+                <li><strong>Chromatography mode:</strong> Normal-phase</li>
+                <li><strong>Stationary phase:</strong> Silica gel, 15 µm spherical particles, 60 Å pore size, 25 g mass</li>
+                <li><strong>Mobile phase:</strong> Ethyl acetate/acetonitrile, 2:8 (v/v)</li>
+                <li><strong>Elution:</strong> Isocratic</li>
+                <li><strong>Flow rate:</strong> 5 mL/min</li>
+                <li><strong>Run time:</strong> 20 min</li>
+                <li><strong>Injection volume:</strong> 3 mL of crude extract</li>
+                <li><strong>Detection:</strong> UV at 340 nm</li>
+                <li><strong>Fraction triggering:</strong> UV threshold of 10 mAU</li>
+                <li><strong>Solvent removal:</strong> Evaporation under nitrogen</li>
+                <li><strong>Number of runs:</strong> 85</li>
+            </ul>
+        </div>
 
         <div class="references-section">
             <div class="citation-entry" id="ref1">
-                <sup>1</sup> Naumoska, K.; Gregori, A.; Albreht, A. Two-Dimensional Chromatographic Isolation of High Purity Erinacine A from Hericium erinaceus. J. Fungi 2025, 11(2), 150. <a href="https://doi.org/10.3390/jof11020150" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jof11020150</a>
+                <sup>1</sup> Naumoska, K.; Gregori, A.; Albreht, A. Two-Dimensional Chromatographic Isolation of High Purity Erinacine A from <i>Hericium erinaceus</i>. <i>J. Fungi</i> 2025, 11(2), 150. <a href="https://doi.org/10.3390/jof11020150" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jof11020150</a>
             </div>
 
             <div class="license-block">
