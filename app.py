@@ -1,17 +1,25 @@
 import os
-from flask import Flask, send_file, redirect
+from flask import Flask, send_file, redirect, abort
 
 app = Flask(__name__)
 
-# Primary route serving the file
-@app.route("/erina")
-def serve_erina():
-    return send_file("erina.html")
+# Base route default
+@app.route("/")
+def index():
+    return redirect("/erina")
 
-# Redirect /erina.html to /erina
-@app.route("/erina.html")
-def redirect_erina():
-    return redirect("/erina", code=301)
+# Catch-all clean route (e.g. /erina, /11480, /erinacine-a-flash-chromatography-albreht-et-al)
+@app.route("/<page_name>")
+def serve_page(page_name):
+    filename = f"{page_name}.html"
+    if os.path.exists(filename):
+        return send_file(filename)
+    abort(404)
+
+# Handle .html requests by redirecting to clean URLs
+@app.route("/<page_name>.html")
+def redirect_html(page_name):
+    return redirect(f"/{page_name}", code=301)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
