@@ -30,25 +30,6 @@ def serve_html(filename):
     
     abort(404)
 
-@app.route("/")
-def index():
-    """Serve index.html for the root route"""
-    index_path = os.path.join(BASE_DIR, "index.html")
-    if os.path.isfile(index_path):
-        return send_file(index_path)
-    
-    # List available HTML files if no index.html exists
-    html_files = [f for f in os.listdir(BASE_DIR) if f.endswith('.html')]
-    if html_files:
-        links = "".join(f'<li><a href="/{f[:-5]}">{f}</a></li>' for f in sorted(html_files))
-        return f"<h1>Available Pages</h1><ul>{links}</ul>"
-    
-    return "No HTML files found", 404
-
-@app.errorhandler(404)
-def not_found(e):
-    return "Page not found", 404
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
