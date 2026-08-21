@@ -3,18 +3,14 @@ from functools import wraps
 from dotenv import load_dotenv
 from flask import Flask, send_file, redirect, abort, jsonify, request, session, url_for
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-
-# Secret key loaded from .env
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key-for-dev")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASEPICS_DIR = os.path.join(BASE_DIR, "basepics")
 
-# Decorator to protect restricted routes
 def require_unlocked(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -35,9 +31,11 @@ def index():
 @app.route("/api/verify-doors", methods=["POST"])
 def verify_doors():
     data = request.get_json() or {}
-    word = data.get("incantation", "").strip().lower()
+    # Convert 'l' or '|' back to 'i' for validation
+    raw_word = data.get("incantation", "").strip().lower()
+    normalized_word = raw_word.replace("|", "i").replace("l", "i")
 
-    if word in ["mellon", "friend"]:
+    if normalized_word == "friend":
         session["unlocked"] = True
         return jsonify({"success": True, "redirect": "/api/basepics"})
 
