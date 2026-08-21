@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dietary Portion Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary: #3b82f6;
+            --carbs: #3b82f6;
+            --protein: #ef4444;
+            --fat: #eab308;
+            --fibre: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 2rem 1rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Top Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .metric-card .label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-card .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+
+        .metric-card .subtext {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Visual Layout Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 260px;
+        }
+
+        /* Ingredients Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            background-color: #f8fafc;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Observations / Warning Box */
+        .observations {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+
+        .warning-box {
+            background: #fffbebf1;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+
+        .box-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 1rem 0.5rem; }
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Daily Portion Nutritional Profile</h1>
+        <p class="subtitle">Based on standard reference values (USDA) for raw/uncooked ingredients • Target Budget: ~667 ¢</p>
+    </header>
+
+    <!-- Top KPI Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="label">Total Energy</div>
+            <div class="value">~2,570 <span style="font-size:1rem; font-weight:normal;">kcal</span></div>
+            <div class="subtext">Sufficient short-term energy</div>
+        </div>
+        <div class="metric-card" style="border-top: 4px solid var(--carbs);">
+            <div class="label">Carbohydrates</div>
+            <div class="value">~468 g</div>
+            <div class="subtext">73% of energy</div>
+        </div>
+        <div class="metric-card" style="border-top: 4px solid var(--protein);">
+            <div class="label">Protein</div>
+            <div class="value">~86 g</div>
+            <div class="subtext">13% of energy</div>
+        </div>
+        <div class="metric-card" style="border-top: 4px solid var(--fat);">
+            <div class="label">Fat</div>
+            <div class="value">~35 g</div>
+            <div class="subtext">12% of energy</div>
+        </div>
+        <div class="metric-card" style="border-top: 4px solid var(--fibre);">
+            <div class="label">Dietary Fibre</div>
+            <div class="value">~25 g</div>
+            <div class="subtext">Reasonable for energy level</div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="dashboard-grid">
+        <!-- Energy Split Chart -->
+        <div class="card">
+            <div class="card-title">Macronutrient Energy Distribution (%)</div>
+            <div class="chart-container">
+                <canvas id="macroChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Calorie Source Chart -->
+        <div class="card">
+            <div class="card-title">Caloric Breakdown by Ingredient (kcal)</div>
+            <div class="chart-container">
+                <canvas id="ingredientChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ingredient Table -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-title">Ingredient Composition Breakdown</div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ingredient</th>
+                        <th>Amount</th>
+                        <th>Energy (kcal)</th>
+                        <th>Protein (g)</th>
+                        <th>Carbs (g)</th>
+                        <th>Fat (g)</th>
+                        <th>Fibre (g)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Dry Noodles</strong></td>
+                        <td>500 g</td>
+                        <td>1,855</td>
+                        <td>65.0</td>
+                        <td>374.0</td>
+                        <td>7.6</td>
+                        <td>16.0</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Raw Potato</strong></td>
+                        <td>400 g</td>
+                        <td>308</td>
+                        <td>8.2</td>
+                        <td>70.0</td>
+                        <td>0.4</td>
+                        <td>8.4</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cornstarch</strong></td>
+                        <td>~26 g</td>
+                        <td>100</td>
+                        <td>0.1</td>
+                        <td>24.0</td>
+                        <td>0.0</td>
+                        <td>0.0</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Large Eggs</strong></td>
+                        <td>2 units</td>
+                        <td>144</td>
+                        <td>12.6</td>
+                        <td>0.7</td>
+                        <td>9.5</td>
+                        <td>0.0</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Vegetable Oil</strong></td>
+                        <td>20 ml</td>
+                        <td>162</td>
+                        <td>0.0</td>
+                        <td>0.0</td>
+                        <td>18.0</td>
+                        <td>0.0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Key Observations Section -->
+    <div class="observations">
+        <div class="info-box">
+            <div class="box-title" style="color: #1e40af;">Dietary Composition</div>
+            <p>This diet is heavily carb-centric, providing energy primarily through noodles, potatoes, and cornstarch. Protein is moderate and predominantly sourced from the high volume of noodles alongside the eggs. Fat content is kept low-to-moderate, driven mainly by the vegetable oil and egg yolks.</p>
+        </div>
+        <div class="warning-box">
+            <div class="box-title" style="color: #92400e;">Micronutrient Advisory</div>
+            <p>While adequate for short-term calorie targets, the narrow food selection leaves significant gaps in micronutrients (Vitamins A, C, D, E, K, most B vitamins, and essential minerals like calcium). Long-term adherence without supplementation or diet diversification carries a high risk of nutritional deficiencies.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Macronutrient Donut Chart
+    const ctxMacro = document.getElementById('macroChart').getContext('2d');
+    new Chart(ctxMacro, {
+        type: 'doughnut',
+        data: {
+            labels: ['Carbohydrates (~73%)', 'Protein (~13%)', 'Fat (~12%)'],
+            datasets: [{
+                data: [73, 13, 12],
+                backgroundColor: ['#3b82f6', '#ef4444', '#eab308'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            cutout: '65%'
+        }
+    });
+
+    // Ingredient Calorie Bar Chart
+    const ctxIngredient = document.getElementById('ingredientChart').getContext('2d');
+    new Chart(ctxIngredient, {
+        type: 'bar',
+        data: {
+            labels: ['Noodles', 'Potato', 'Oil', 'Eggs', 'Starch'],
+            datasets: [{
+                label: 'Calories (kcal)',
+                data: [1855, 308, 162, 144, 100],
+                backgroundColor: '#3b82f6',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#e2e8f0'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
