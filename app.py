@@ -1,21 +1,58 @@
 import os
-from flask import Flask, send_file, redirect, abort, jsonify
+from functools import wraps
+from flask import Flask, send_file, redirect, abort, jsonify, request, session, url_for
 
 app = Flask(__name__)
+
+# Required for session signing. Use a strong random key in production.
+app.secret_key = os.environ.get("SECRET_KEY", "moria-secret-key-change-me")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASEPICS_DIR = os.path.join(BASE_DIR, "basepics")
 
-# Serve static images from /basepics/
+# Decorator to restrict routes to unlocked sessions
+def require_unlocked(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("unlocked"):
+            # Return 401 for API requests, redirect to / for page requests
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Unauthorized. Speak 'friend' first."}), 401
+            return redirect(url_for("index"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route("/")
+def index():
+    index_path = os.path.join(BASE_DIR, "index.html")
+    if os.path.exists(index_path):
+        return send_file(index_path)
+    abort(404)
+
+# Verification endpoint called by index.html
+@app.route("/api/verify-doors", methods=["POST"])
+def verify_doors():
+    data = request.get_json() or {}
+    word = data.get("incantation", "").strip().lower()
+
+    if word in ["mellon", "friend"]:
+        session["unlocked"] = True  # Set session flag
+        return jsonify({"success": True, "redirect": "/api/basepics"})
+
+    return jsonify({"success": False, "message": "The stone remains silent."}), 401
+
+# PROTECTED: Requires session["unlocked"] == True
 @app.route("/basepics/<filename>")
+@require_unlocked
 def serve_basepic(filename):
     file_path = os.path.join(BASEPICS_DIR, filename)
     if os.path.isfile(file_path) and os.path.commonpath([BASEPICS_DIR, file_path]) == BASEPICS_DIR:
         return send_file(file_path)
     abort(404)
 
-# API endpoint to list all .png and .jpg images
+# PROTECTED: Requires session["unlocked"] == True
 @app.route("/api/basepics")
+@require_unlocked
 def list_basepics():
     if not os.path.exists(BASEPICS_DIR):
         return jsonify([])
@@ -25,14 +62,6 @@ def list_basepics():
         if f.lower().endswith(valid_extensions)
     ]
     return jsonify(images)
-
-@app.route("/")
-def index():
-    # Serves index.html as the home page if accessed at /
-    index_path = os.path.join(BASE_DIR, "index.html")
-    if os.path.exists(index_path):
-        return send_file(index_path)
-    abort(404)
 
 @app.route("/<path:filename>")
 def serve_html(filename):
