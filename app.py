@@ -6,7 +6,7 @@ app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASEPICS_DIR = os.path.join(BASE_DIR, "basepics")
 
-# NEW: Serve static images from /basepics/
+# Serve static images from /basepics/
 @app.route("/basepics/<filename>")
 def serve_basepic(filename):
     file_path = os.path.join(BASEPICS_DIR, filename)
@@ -14,7 +14,7 @@ def serve_basepic(filename):
         return send_file(file_path)
     abort(404)
 
-# NEW: API endpoint to list all .png and .jpg images
+# API endpoint to list all .png and .jpg images
 @app.route("/api/basepics")
 def list_basepics():
     if not os.path.exists(BASEPICS_DIR):
@@ -28,10 +28,10 @@ def list_basepics():
 
 @app.route("/")
 def index():
-    # Serves erina.html as the home page if accessed at /
-    rina_path = os.path.join(BASE_DIR, "erina.html")
-    if os.path.exists(rina_path):
-        return send_file(rina_path)
+    # Serves index.html as the home page if accessed at /
+    index_path = os.path.join(BASE_DIR, "index.html")
+    if os.path.exists(index_path):
+        return send_file(index_path)
     abort(404)
 
 @app.route("/<path:filename>")
