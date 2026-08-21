@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ennyn Durin</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #05070a;
+            color: #d1d5db;
+            font-family: 'Cinzel', serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+            background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+        }
+
+        .container {
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        /* Doors Arch Frame */
+        .door-container {
+            position: relative;
+            width: 300px;
+            height: 420px;
+            margin: 0 auto 40px;
+            border: 2px solid rgba(147, 197, 253, 0.15);
+            border-radius: 150px 150px 0 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(147, 197, 253, 0.05);
+            transition: all 1.2s ease-in-out;
+        }
+
+        /* Ithildin Glow Effect upon unlocking */
+        .door-container.unlocked {
+            border-color: #93c5fd;
+            box-shadow: inset 0 0 60px rgba(147, 197, 253, 0.3), 0 0 40px rgba(147, 197, 253, 0.5);
+            background: rgba(147, 197, 253, 0.03);
+        }
+
+        .elvish-inscription {
+            font-size: 1.15rem;
+            color: #38bdf8;
+            opacity: 0.35;
+            text-shadow: 0 0 3px #38bdf8;
+            padding: 25px;
+            line-height: 2;
+            letter-spacing: 1px;
+            transition: opacity 1.2s ease, text-shadow 1.2s ease;
+        }
+
+        .door-container.unlocked .elvish-inscription {
+            opacity: 1;
+            text-shadow: 0 0 12px #93c5fd, 0 0 25px #38bdf8;
+        }
+
+        /* Password Form */
+        .input-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            background-color: #0b1329;
+            border: 1px solid #1e293b;
+            color: #f8fafc;
+            padding: 12px 18px;
+            font-family: 'Cinzel', serif;
+            font-size: 1rem;
+            border-radius: 4px;
+            outline: none;
+            text-align: center;
+            transition: border-color 0.4s, box-shadow 0.4s;
+            width: 240px;
+        }
+
+        input[type="text"]:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+        }
+
+        button {
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 12px 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #1e293b;
+            border-color: #64748b;
+            color: #f8fafc;
+        }
+
+        /* Feedback Message */
+        #message {
+            min-height: 24px;
+            font-size: 0.95rem;
+            color: #64748b;
+            transition: color 0.5s ease;
+        }
+
+        #message.success {
+            color: #38bdf8;
+            text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="door-container" id="doors">
+            <div class="elvish-inscription">
+                Ennyn Durin Aran Moria.<br>
+                Pedo Mellon a Minno.<br>
+                Im Narvi hain echant.<br>
+                Celebrimbor o Eregion teithant i thiw hin.
+            </div>
+        </div>
+
+        <form id="riddle-form" onsubmit="checkIncantation(event)">
+            <div class="input-group">
+                <input type="text" id="incantation" autocomplete="off">
+                <button type="submit">Speak</button>
+            </div>
+        </form>
+
+        <div id="message"></div>
+    </div>
+
+    <script>
+        function checkIncantation(event) {
+            event.preventDefault();
+            const input = document.getElementById('incantation').value.trim().toLowerCase();
+            const message = document.getElementById('message');
+            const doors = document.getElementById('doors');
+
+            if (input === 'friend' || input === 'mellon') {
+                doors.classList.add('unlocked');
+                message.className = 'success';
+                message.textContent = 'The doors swing silently open...';
+            } else {
+                doors.classList.remove('unlocked');
+                message.className = '';
+                message.textContent = 'The stone remains silent.';
+            }
+        }
+    </script>
+</body>
+</html>
