@@ -71,7 +71,7 @@
             text-shadow: 0 0 12px #93c5fd, 0 0 25px #38bdf8;
         }
 
-        /* Password Form */
+        /* Input Control */
         .input-group {
             display: flex;
             justify-content: center;
@@ -116,7 +116,7 @@
             color: #f8fafc;
         }
 
-        /* Feedback Message */
+        /* Status Message */
         #message {
             min-height: 24px;
             font-size: 0.95rem;
@@ -144,7 +144,7 @@
 
         <form id="riddle-form" onsubmit="checkIncantation(event)">
             <div class="input-group">
-                <input type="text" id="incantation" autocomplete="off">
+                <input type="text" id="incantation" autocomplete="off" autofocus>
                 <button type="submit">Speak</button>
             </div>
         </form>
@@ -153,22 +153,38 @@
     </div>
 
     <script>
-        function checkIncantation(event) {
+        async function checkIncantation(event) {
             event.preventDefault();
-            const input = document.getElementById('incantation').value.trim().toLowerCase();
+            const input = document.getElementById('incantation').value;
             const message = document.getElementById('message');
             const doors = document.getElementById('doors');
 
-            if (input === 'friend' || input === 'mellon') {
-                doors.classList.add('unlocked');
-                message.className = 'success';
-                message.textContent = 'The doors swing silently open...';
-            } else {
-                doors.classList.remove('unlocked');
-                message.className = '';
-                message.textContent = 'The stone remains silent.';
+            try {
+                const response = await fetch('/api/verify-doors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ incantation: input })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    doors.classList.add('unlocked');
+                    message.className = 'success';
+                    message.textContent = 'The doors swing silently open...';
+                    
+                    setTimeout(() => {
+                        window.location.href = result.redirect;
+                    }, 1500);
+                } else {
+                    doors.classList.remove('unlocked');
+                    message.className = '';
+                    message.textContent = result.message || 'The stone remains silent.';
+                }
+            } catch (err) {
+                message.textContent = 'An error occurred while speaking to the stone.';
             }
         }
     </script>
 </body>
-</html>
+    </html>
