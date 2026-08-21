@@ -36,11 +36,11 @@
         /* Doors Arch Frame */
         .door-container {
             position: relative;
-            width: 300px;
-            height: 420px;
+            width: 320px;
+            height: 440px;
             margin: 0 auto 40px;
             border: 2px solid rgba(147, 197, 253, 0.15);
-            border-radius: 150px 150px 0 0;
+            border-radius: 160px 160px 0 0;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -48,22 +48,23 @@
             transition: all 1.2s ease-in-out;
         }
 
-        /* Ithildin Glow Effect upon unlocking */
         .door-container.unlocked {
             border-color: #93c5fd;
             box-shadow: inset 0 0 60px rgba(147, 197, 253, 0.3), 0 0 40px rgba(147, 197, 253, 0.5);
             background: rgba(147, 197, 253, 0.03);
         }
 
+        /* The Runes Inscription Inside the Arch */
         .elvish-inscription {
-            font-size: 1.15rem;
+            font-size: 1.3rem;
             color: #38bdf8;
             opacity: 0.35;
             text-shadow: 0 0 3px #38bdf8;
             padding: 25px;
             line-height: 2;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
             transition: opacity 1.2s ease, text-shadow 1.2s ease;
+            font-weight: 700;
         }
 
         .door-container.unlocked .elvish-inscription {
@@ -71,8 +72,9 @@
             text-shadow: 0 0 12px #93c5fd, 0 0 25px #38bdf8;
         }
 
-        /* Input Control */
+        /* Input Controls */
         .input-group {
+            position: relative;
             display: flex;
             justify-content: center;
             gap: 10px;
@@ -91,6 +93,7 @@
             text-align: center;
             transition: border-color 0.4s, box-shadow 0.4s;
             width: 240px;
+            letter-spacing: 2px;
         }
 
         input[type="text"]:focus {
@@ -107,13 +110,41 @@
             font-size: 0.9rem;
             cursor: pointer;
             border-radius: 4px;
-            transition: all 0.3s ease;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        button.hidden-btn {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.9);
         }
 
         button:hover {
             background-color: #1e293b;
             border-color: #64748b;
             color: #f8fafc;
+        }
+
+        /* Flying Letter Animation */
+        .flying-letter {
+            position: absolute;
+            color: #38bdf8;
+            font-family: 'Cinzel', serif;
+            font-size: 1.2rem;
+            pointer-events: none;
+            animation: flyAway 1.2s forwards ease-in-out;
+            text-shadow: 0 0 8px #38bdf8;
+        }
+
+        @keyframes flyAway {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(120px, -180px) rotate(45deg) scale(1.5);
+            }
         }
 
         /* Status Message */
@@ -133,19 +164,17 @@
 <body>
 
     <div class="container">
+        <!-- Arch with "SPEAK FRIEND AND ENTER" as the inscription -->
         <div class="door-container" id="doors">
             <div class="elvish-inscription">
-                Ennyn Durin Aran Moria.<br>
-                Pedo Mellon a Minno.<br>
-                Im Narvi hain echant.<br>
-                Celebrimbor o Eregion teithant i thiw hin.
+                SPEAK FRIEND AND ENTER
             </div>
         </div>
 
         <form id="riddle-form" onsubmit="checkIncantation(event)">
-            <div class="input-group">
-                <input type="text" id="incantation" autocomplete="off" autofocus>
-                <button type="submit">Speak</button>
+            <div class="input-group" id="inputContainer">
+                <input type="text" id="incantation" autocomplete="off" autofocus oninput="handleInput(event)">
+                <button type="submit" id="speakBtn">Speak</button>
             </div>
         </form>
 
@@ -153,6 +182,59 @@
     </div>
 
     <script>
+        function handleInput(event) {
+            const input = event.target;
+            const rawValue = input.value;
+            const speakBtn = document.getElementById('speakBtn');
+            let resultChars = [];
+
+            for (let i = 0; i < rawValue.length; i++) {
+                let char = rawValue[i];
+
+                // Check if typed letter is 'i' or 'I'
+                if (char === 'i' || char === 'I') {
+                    // Trigger flyaway specifically for 'i'
+                    triggerFlyaway(char);
+                    // Skip adding 'i' to the result string
+                    continue;
+                }
+
+                // If lowercase 'l', render as lowercase 'l' (same vertical bar visual as upper 'I')
+                if (char === 'l') {
+                    resultChars.push('l');
+                } else {
+                    // Force all other letters to uppercase
+                    resultChars.push(char.toUpperCase());
+                }
+            }
+
+            // Reconstruct value
+            input.value = resultChars.join('');
+
+            // Hide speak button when length reaches 6
+            if (input.value.length >= 6) {
+                speakBtn.classList.add('hidden-btn');
+            } else {
+                speakBtn.classList.remove('hidden-btn');
+            }
+        }
+
+        function triggerFlyaway(char) {
+            const container = document.getElementById('inputContainer');
+            const flyingElem = document.createElement('span');
+            flyingElem.className = 'flying-letter';
+            flyingElem.textContent = char;
+
+            flyingElem.style.left = '40%';
+            flyingElem.style.top = '10px';
+
+            container.appendChild(flyingElem);
+
+            setTimeout(() => {
+                flyingElem.remove();
+            }, 1200);
+        }
+
         async function checkIncantation(event) {
             event.preventDefault();
             const input = document.getElementById('incantation').value;
@@ -187,4 +269,4 @@
         }
     </script>
 </body>
-    </html>
+</html>
