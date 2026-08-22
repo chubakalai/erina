@@ -7,10 +7,9 @@ DB_NAME = "comments.db"
 
 
 def init_db():
-    """Initialize database and seed dummy main post if empty."""
+    """Ensure database and tables are created before processing requests."""
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-        # Create posts table
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS posts (
@@ -20,7 +19,6 @@ def init_db():
             )
         """
         )
-        # Create comments table with parent_id for nesting
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS comments (
@@ -35,7 +33,6 @@ def init_db():
         """
         )
 
-        # Insert initial dummy post if none exists
         cursor.execute("SELECT COUNT(*) FROM posts")
         if cursor.fetchone()[0] == 0:
             date_str = datetime.now().strftime("%B %d, %Y - %I:%M %p")
@@ -51,6 +48,10 @@ def init_db():
         conn.commit()
 
 
+# Run DB initialization immediately when app module loads (Crucial for Gunicorn/Fly.io)
+init_db()
+
+
 @app.route("/")
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -58,7 +59,6 @@ def index():
 
 @app.route("/api/post", methods=["GET"])
 def get_post():
-    """Fetch the main post and its threaded comments."""
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -87,10 +87,9 @@ def get_post():
 
 @app.route("/api/comment", methods=["POST"])
 def add_comment():
-    """Add a new root comment or reply to an existing comment."""
     data = request.json or {}
     post_id = data.get("post_id")
-    parent_id = data.get("parent_id")  # Can be None/null for root comments
+    parent_id = data.get("parent_id")
     content = data.get("content", "").strip()
 
     if not content or not post_id:
@@ -110,7 +109,6 @@ def add_comment():
 
 
 def build_comment_tree(comments):
-    """Helper to structure flat database list into a nested tree."""
     comment_dict = {c["id"]: {**c, "children": []} for c in comments}
     tree = []
 
@@ -124,14 +122,13 @@ def build_comment_tree(comments):
     return tree
 
 
-# Integrated HTML/CSS/JS frontend template
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Post & Comment System</title>
+    <title>Post & Comments</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -145,17 +142,16 @@ HTML_TEMPLATE = """
 
         .container {
             width: 100%;
-            max-width: 700px;
+            max-width: 650px;
         }
 
-        /* Post & Comment Rectangles */
         .card {
             background-color: #ffffff;
             border: 1px solid #e1e4e8;
             border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-            margin-bottom: 12px; /* Small gap between elements */
+            padding: 18px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 10px;
         }
 
         .post-card {
@@ -163,35 +159,25 @@ HTML_TEMPLATE = """
         }
 
         .date {
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             color: #6a737d;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             display: block;
         }
 
         .content {
-            font-size: 0.98rem;
+            font-size: 0.95rem;
             color: #24292e;
             line-height: 1.5;
-            margin: 0 0 12px 0;
-        }
-
-        /* Threading & Nesting Indentation */
-        .comments-container {
-            margin-top: 16px;
-        }
-
-        .comment-node {
-            margin-bottom: 8px; /* Small gap between siblings */
+            margin: 0 0 10px 0;
         }
 
         .nested-comments {
-            margin-left: 28px; /* Visual indentation for replies */
+            margin-left: 24px;
             border-left: 2px solid #e1e4e8;
-            padding-left: 12px;
+            padding-left: 10px;
         }
 
-        /* Form Controls */
         textarea {
             width: 100%;
             min-height: 60px;
@@ -206,30 +192,28 @@ HTML_TEMPLATE = """
         textarea:focus {
             outline: none;
             border-color: #0066cc;
-            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
         }
 
         button {
             background-color: #0066cc;
             color: white;
             border: none;
-            padding: 8px 14px;
+            padding: 7px 14px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.88rem;
+            font-size: 0.85rem;
             font-weight: 500;
         }
 
         button:hover { background-color: #0052a3; }
-        
+
         .btn-reply {
             background: none;
             color: #0066cc;
             padding: 0;
-            font-size: 0.85rem;
-            margin-top: 4px;
+            font-size: 0.82rem;
         }
-        
+
         .btn-reply:hover {
             background: none;
             text-decoration: underline;
@@ -246,16 +230,13 @@ HTML_TEMPLATE = """
 <body>
 
 <div class="container">
-    <!-- Main Post Box -->
-    <div id="post-target"></div>
+    <div id="post-target">Loading...</div>
 
-    <!-- Main Comment Input Box -->
     <div class="card">
         <textarea id="main-comment-input" placeholder="Write a comment..."></textarea>
-        <button onclick="submitComment(null, 'main-comment-input')">Post Comment</button>
+        <button onclick="submitComment(null, 'main-comment-input')">Comment</button>
     </div>
 
-    <!-- Tree of Threaded Comments -->
     <div class="comments-container" id="comments-target"></div>
 </div>
 
@@ -263,22 +244,25 @@ HTML_TEMPLATE = """
     let currentPostId = null;
 
     async function loadData() {
-        const response = await fetch('/api/post');
-        const data = await response.json();
-        
-        currentPostId = data.post.id;
-        
-        // Render Post
-        document.getElementById('post-target').innerHTML = `
-            <div class="card post-card">
-                <span class="date">${data.post.created_at}</span>
-                <p class="content">${escapeHtml(data.post.content)}</p>
-            </div>
-        `;
+        try {
+            const response = await fetch('/api/post');
+            if (!response.ok) throw new Error("Failed to fetch post");
+            
+            const data = await response.json();
+            currentPostId = data.post.id;
+            
+            document.getElementById('post-target').innerHTML = `
+                <div class="card post-card">
+                    <span class="date">${data.post.created_at}</span>
+                    <p class="content">${escapeHtml(data.post.content)}</p>
+                </div>
+            `;
 
-        // Render Comments
-        const commentsContainer = document.getElementById('comments-target');
-        commentsContainer.innerHTML = renderCommentsTree(data.comments);
+            document.getElementById('comments-target').innerHTML = renderCommentsTree(data.comments);
+        } catch (err) {
+            console.error(err);
+            document.getElementById('post-target').innerHTML = `<div class="card">Error loading post.</div>`;
+        }
     }
 
     function renderCommentsTree(comments) {
@@ -297,7 +281,6 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
                 
-                <!-- Indented Child Comments Container -->
                 <div class="nested-comments">
                     ${renderCommentsTree(comment.children)}
                 </div>
@@ -311,6 +294,8 @@ HTML_TEMPLATE = """
     }
 
     async function submitComment(parentId, inputId) {
+        if (!currentPostId) return;
+
         const inputElem = document.getElementById(inputId);
         const content = inputElem.value;
 
@@ -328,7 +313,7 @@ HTML_TEMPLATE = """
 
         if (response.ok) {
             inputElem.value = '';
-            loadData(); // Refresh UI
+            loadData();
         }
     }
 
@@ -336,7 +321,6 @@ HTML_TEMPLATE = """
         return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Initial load
     loadData();
 </script>
 
@@ -345,5 +329,4 @@ HTML_TEMPLATE = """
 """
 
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True, port=5000)
