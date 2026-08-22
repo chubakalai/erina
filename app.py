@@ -7,6 +7,7 @@ DB_NAME = "comments.db"
 
 
 def init_db():
+    """Create database tables and seed initial post immediately on load."""
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -33,7 +34,10 @@ def init_db():
         cursor.execute("SELECT COUNT(*) FROM posts")
         if cursor.fetchone()[0] == 0:
             date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-            dummy_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+            dummy_text = (
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+                "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+            )
             cursor.execute(
                 "INSERT INTO posts (content, created_at) VALUES (?, ?)",
                 (dummy_text, date_str),
@@ -41,6 +45,7 @@ def init_db():
         conn.commit()
 
 
+# Execute DB initialization immediately upon module import for Gunicorn
 init_db()
 
 
@@ -69,12 +74,7 @@ def get_post():
         )
         comments = [dict(row) for row in cursor.fetchall()]
 
-    return jsonify(
-        {
-            "post": dict(post),
-            "comments": comments,
-        }
-    )
+    return jsonify({"post": dict(post), "comments": comments})
 
 
 @app.route("/api/comment", methods=["POST"])
@@ -104,27 +104,27 @@ HTML_TEMPLATE = """
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Geometric Rectangles</title>
+    <title>Geometric Comments</title>
 </head>
 <body style="background-color: #121212; margin: 0; padding-top: 40px;">
 
 <div style="display: flex; flex-direction: column; align-items: center;">
 
-    <!-- Main Post Rectangle -->
+    <!-- Main Geometric Post -->
     <div id="post-target"></div>
 
-    <!-- Trigger Button -->
+    <!-- Toggle Comment Input -->
     <div style="width: 500px; margin-top: 5px; margin-bottom: 10px;">
         <button onclick="toggleCommentBox()" style="background-color: #2a2a2a; color: #ffffff; border: 1px solid #ffffff; padding: 6px 12px; cursor: pointer; font-family: sans-serif; font-size: 13px;">Comment</button>
     </div>
 
-    <!-- Hidden Input Rectangle appearing at exact comment location -->
+    <!-- Input Box matching exact comment dimensions and location -->
     <div id="comment-box-wrapper" style="display: none; margin-left: 40px; margin-bottom: 15px;">
         <textarea id="comment-input" placeholder="Type comment..." style="width: 460px; height: 100px; background-color: #2a2a2a; color: #ffffff; border: 2px solid #ffffff; border-radius: 0px; box-sizing: border-box; resize: none; font-family: sans-serif; font-size: 14px; padding: 12px; display: block; outline: none;"></textarea>
         <button onclick="submitComment()" style="margin-top: 5px; background-color: #ffffff; color: #000000; border: none; padding: 6px 12px; cursor: pointer; font-weight: bold; font-family: sans-serif;">Submit</button>
     </div>
 
-    <!-- Rendered Comments Stack -->
+    <!-- Comments Stack -->
     <div id="comments-target"></div>
 
 </div>
@@ -138,10 +138,10 @@ HTML_TEMPLATE = """
             const data = await response.json();
             currentPostId = data.post.id;
 
-            // Render post (width 500px, 0 indent)
+            // Render post (width 500px, margin-left 0px)
             document.getElementById('post-target').innerHTML = createSvgRectangle(data.post.content, data.post.created_at, 500, 0);
 
-            // Render comments (width 460px, indented 40px)
+            // Render comments (width 460px, margin-left 40px)
             const commentsContainer = document.getElementById('comments-target');
             commentsContainer.innerHTML = data.comments.map(c => createSvgRectangle(c.content, c.created_at, 460, 40)).join('');
         } catch (err) {
@@ -215,3 +215,7 @@ HTML_TEMPLATE = """
 
 </body>
 </html>
+"""
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
