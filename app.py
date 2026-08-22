@@ -113,14 +113,14 @@ HTML_TEMPLATE = """
     <!-- Main Geometric Post -->
     <div id="post-target"></div>
 
-    <!-- Toggle Comment Input -->
+    <!-- Toggle Comment Plain Text -->
     <div style="width: 500px; margin-top: 5px; margin-bottom: 10px;">
-        <button onclick="toggleCommentBox()" style="background-color: #8b8c89; color: #ffffff; border: 1px solid #000000; padding: 6px 12px; cursor: pointer; font-family: sans-serif; font-size: 13px;">Comment</button>
+        <span onclick="toggleCommentBox()" style="color: #000000; cursor: pointer; font-family: sans-serif; font-size: 13px; font-weight: bold; text-decoration: underline;">Comment</span>
     </div>
 
     <!-- Input Box matching exact comment dimensions and location -->
     <div id="comment-box-wrapper" style="display: none; margin-left: 40px; margin-bottom: 15px;">
-        <textarea id="comment-input" placeholder="Type comment..." style="width: 460px; height: 100px; background-color: #8b8c89; color: #ffffff; border: 2px solid #000000; border-radius: 0px; box-sizing: border-box; resize: none; font-family: sans-serif; font-size: 14px; padding: 12px; display: block; outline: none;"></textarea>
+        <textarea id="comment-input" placeholder="Type comment..." style="width: 460px; height: 100px; background-color: #8b8c89; color: #ffffff; border: none; border-radius: 0px; box-sizing: border-box; resize: none; font-family: sans-serif; font-size: 14px; padding: 12px; display: block; outline: none;"></textarea>
         <button onclick="submitComment()" style="margin-top: 5px; background-color: #000000; color: #ffffff; border: none; padding: 6px 12px; cursor: pointer; font-weight: bold; font-family: sans-serif;">Submit</button>
     </div>
 
@@ -171,7 +171,7 @@ HTML_TEMPLATE = """
         return `
             <div style="margin-left: ${leftMargin}px; margin-bottom: 10px;">
                 <svg width="${rectWidth}" height="100" viewBox="0 0 ${rectWidth} 100">
-                    <rect x="0" y="0" width="${rectWidth}" height="100" fill="#8b8c89" stroke="#000000" stroke-width="2" />
+                    <rect x="0" y="0" width="${rectWidth}" height="100" fill="#8b8c89" stroke="none" />
                     <text x="15" y="30" font-family="sans-serif" font-size="14" fill="#ffffff">${textTspans}</text>
                     <text x="${rectWidth - 15}" y="85" text-anchor="end" font-family="sans-serif" font-size="12" fill="#e0e0e0">${escapeHtml(date)}</text>
                 </svg>
@@ -215,7 +215,3 @@ HTML_TEMPLATE = """
 
 </body>
 </html>
-"""
-
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
