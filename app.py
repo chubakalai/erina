@@ -33,7 +33,7 @@ def init_db():
         cursor.execute("SELECT COUNT(*) FROM posts")
         if cursor.fetchone()[0] == 0:
             date_str = datetime.now().strftime("%Y-%m-%d")
-            dummy_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor."
+            dummy_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
             cursor.execute(
                 "INSERT INTO posts (content, created_at) VALUES (?, ?)",
                 (dummy_text, date_str),
@@ -108,16 +108,21 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
-<div id="post-target"></div>
+<div style="display: flex; flex-direction: column; align-items: center;">
 
-<div>
-    <textarea id="comment-input" rows="3" cols="50"></textarea><br>
-    <button onclick="submitComment()">Submit</button>
+    <!-- Main Post Geometric Rectangle -->
+    <div id="post-target"></div>
+
+    <!-- Input Box Box at exact comment location -->
+    <div style="margin-left: 40px; margin-top: 10px; margin-bottom: 10px;">
+        <textarea id="comment-input" placeholder="Type comment..." style="width: 460px; height: 100px; background-color: #e0e0e0; border: 2px solid black; border-radius: 0px; box-sizing: border-box; resize: none; font-family: sans-serif; font-size: 14px; padding: 10px; display: block;"></textarea>
+        <button onclick="submitComment()" style="margin-top: 5px; display: block;">Submit</button>
+    </div>
+
+    <!-- Rendered Comments Stack -->
+    <div id="comments-target"></div>
+
 </div>
-
-<br>
-
-<div id="comments-target"></div>
 
 <script>
     let currentPostId = null;
@@ -128,26 +133,45 @@ HTML_TEMPLATE = """
             const data = await response.json();
             currentPostId = data.post.id;
 
-            // Render post inside a geometric SVG rectangle with date bottom-right
-            document.getElementById('post-target').innerHTML = createSvgRectangle(data.post.content, data.post.created_at, 0);
+            // Render main post rectangle (centered, width 500px, 0 indent)
+            document.getElementById('post-target').innerHTML = createSvgRectangle(data.post.content, data.post.created_at, 500, 0);
 
-            // Render comments as indented geometric SVG rectangles with dates bottom-right
+            // Render comments as indented rectangles (width 460px, indented by 40px)
             const commentsContainer = document.getElementById('comments-target');
-            commentsContainer.innerHTML = data.comments.map(c => createSvgRectangle(c.content, c.created_at, 40)).join('<br>');
+            commentsContainer.innerHTML = data.comments.map(c => createSvgRectangle(c.content, c.created_at, 460, 40)).join('');
         } catch (err) {
             console.error(err);
         }
     }
 
-    function createSvgRectangle(text, date, xOffset) {
+    function createSvgRectangle(text, date, rectWidth, leftMargin) {
+        // Break text into multi-line SVG <tspan> elements
+        const words = text.split(' ');
+        let lines = [];
+        let currentLine = '';
+        
+        words.forEach(word => {
+            if ((currentLine + word).length > 45) {
+                lines.push(currentLine);
+                currentLine = word + ' ';
+            } else {
+                currentLine += word + ' ';
+            }
+        });
+        lines.push(currentLine);
+
+        const textTspans = lines.map((line, index) => 
+            `<tspan x="15" dy="${index === 0 ? 0 : 20}">${escapeHtml(line)}</tspan>`
+        ).join('');
+
         return `
-            <svg width="500" height="120" viewBox="0 0 500 120">
-                <g transform="translate(${xOffset}, 0)">
-                    <rect x="0" y="0" width="${460 - xOffset}" height="100" fill="none" stroke="black" stroke-width="2" />
-                    <text x="15" y="35" font-family="sans-serif" font-size="14">${escapeHtml(text)}</text>
-                    <text x="${445 - xOffset}" y="85" text-anchor="end" font-family="sans-serif" font-size="12">${escapeHtml(date)}</text>
-                </g>
-            </svg>
+            <div style="margin-left: ${leftMargin}px; margin-bottom: 10px;">
+                <svg width="${rectWidth}" height="100" viewBox="0 0 ${rectWidth} 100">
+                    <rect x="0" y="0" width="${rectWidth}" height="100" fill="#e0e0e0" stroke="black" stroke-width="2" />
+                    <text x="15" y="30" font-family="sans-serif" font-size="14" fill="black">${textTspans}</text>
+                    <text x="${rectWidth - 15}" y="85" text-anchor="end" font-family="sans-serif" font-size="12" fill="black">${escapeHtml(date)}</text>
+                </svg>
+            </div>
         `;
     }
 
