@@ -1,19 +1,28 @@
+import os
 import sqlite3
 from datetime import datetime
-from flask import Flask, jsonify, render_template_string, request
+from flask import (
+    Flask,
+    abort,
+    jsonify,
+    render_template_string,
+    request,
+    send_from_directory,
+)
 
 app = Flask(__name__)
 DB_NAME = "comments.db"
 
 
 def init_db():
-    """Create database tables and seed initial post immediately on load."""
+    """Create database tables immediately on load."""
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS posts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                slug TEXT UNIQUE NOT NULL,
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
@@ -30,43 +39,54 @@ def init_db():
             )
         """
         )
-
-        cursor.execute("SELECT COUNT(*) FROM posts")
-        if cursor.fetchone()[0] == 0:
-            date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-            dummy_text = (
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-                "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-            )
-            cursor.execute(
-                "INSERT INTO posts (content, created_at) VALUES (?, ?)",
-                (dummy_text, date_str),
-            )
         conn.commit()
 
 
-# Execute DB initialization immediately upon module import for Gunicorn
 init_db()
 
 
-@app.route("/")
-def index():
-    return render_template_string(HTML_TEMPLATE)
+# -----------------------------------------------------------------------------
+# 1. Base Pics: Serve files inside /basepics directly via path (e.g. /basepics/image.png)
+# -----------------------------------------------------------------------------
+@app.route("/basepics/<path:filename>")
+def serve_basepics(filename):
+    basepics_dir = os.path.join(app.root_path, "basepics")
+    return send_from_directory(basepics_dir, filename)
 
 
-@app.route("/api/post", methods=["GET"])
-def get_post():
+# -----------------------------------------------------------------------------
+# 2. Dynamic Posts: Every route under /posts/<slug> gets a rectangle & comment section
+# -----------------------------------------------------------------------------
+@app.route("/posts/<slug>")
+def render_post_page(slug):
+    return render_template_string(POST_TEMPLATE, slug=slug)
+
+
+@app.route("/api/post/<slug>", methods=["GET"])
+def get_post(slug):
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, content, created_at FROM posts ORDER BY id ASC LIMIT 1"
+            "SELECT id, content, created_at FROM posts WHERE slug = ?", (slug,)
         )
         post = cursor.fetchone()
 
+        # If post does not exist yet in DB, seed a default geometric rectangle record for it
         if not post:
-            return jsonify({"error": "Post not found"}), 404
+            date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            dummy_text = f"Post content for '{slug}'. Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+            cursor.execute(
+                "INSERT INTO posts (slug, content, created_at) VALUES (?, ?, ?)",
+                (slug, dummy_text, date_str),
+            )
+            conn.commit()
+            cursor.execute(
+                "SELECT id, content, created_at FROM posts WHERE slug = ?",
+                (slug,),
+            )
+            post = cursor.fetchone()
 
         cursor.execute(
             "SELECT id, content, created_at FROM comments WHERE post_id = ? ORDER BY id ASC",
@@ -99,12 +119,26 @@ def add_comment():
     return jsonify({"status": "success"}), 201
 
 
-HTML_TEMPLATE = """
+# -----------------------------------------------------------------------------
+# 3. Clean URLs: Serve HTML files in root directory via /<name> without extension
+# -----------------------------------------------------------------------------
+@app.route("/<name>")
+def serve_root_html(name):
+    target_file = f"{name}.html"
+    file_path = os.path.join(app.root_path, target_file)
+
+    if os.path.isfile(file_path):
+        return send_from_directory(app.root_path, target_file)
+
+    abort(404)
+
+
+POST_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Geometric Comments</title>
+    <title>Post - {{ slug }}</title>
 </head>
 <body style="background-color: #ffffff; margin: 0; padding-top: 40px;">
 
@@ -130,18 +164,19 @@ HTML_TEMPLATE = """
 </div>
 
 <script>
+    const currentSlug = "{{ slug }}";
     let currentPostId = null;
 
     async function loadData() {
         try {
-            const response = await fetch('/api/post');
+            const response = await fetch('/api/post/' + currentSlug);
             const data = await response.json();
             currentPostId = data.post.id;
 
-            // Render post (width 500px, margin-left 0px)
+            // Render main post rectangle (width 500px, margin-left 0px)
             document.getElementById('post-target').innerHTML = createSvgRectangle(data.post.content, data.post.created_at, 500, 0);
 
-            // Render comments (width 460px, margin-left 40px)
+            // Render comments rectangles (width 460px, margin-left 40px)
             const commentsContainer = document.getElementById('comments-target');
             commentsContainer.innerHTML = data.comments.map(c => createSvgRectangle(c.content, c.created_at, 460, 40)).join('');
         } catch (err) {
@@ -215,3 +250,7 @@ HTML_TEMPLATE = """
 
 </body>
 </html>
+"""
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
