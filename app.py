@@ -1,83 +1,349 @@
-import os
-from functools import wraps
-from dotenv import load_dotenv
-from flask import Flask, send_file, redirect, abort, jsonify, request, session, url_for
-
-load_dotenv()
+import sqlite3
+from datetime import datetime
+from flask import Flask, jsonify, render_template_string, request
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key-for-dev")
+DB_NAME = "comments.db"
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-BASEPICS_DIR = os.path.join(BASE_DIR, "basepics")
 
-def require_unlocked(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get("unlocked"):
-            if request.path.startswith("/api/"):
-                return jsonify({"error": "Unauthorized. Speak 'friend' first."}), 401
-            return redirect(url_for("index"))
-        return f(*args, **kwargs)
-    return decorated_function
+def init_db():
+    """Initialize database and seed dummy main post if empty."""
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Create posts table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """
+        )
+        # Create comments table with parent_id for nesting
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER NOT NULL,
+                parent_id INTEGER,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (post_id) REFERENCES posts (id),
+                FOREIGN KEY (parent_id) REFERENCES comments (id)
+            )
+        """
+        )
+
+        # Insert initial dummy post if none exists
+        cursor.execute("SELECT COUNT(*) FROM posts")
+        if cursor.fetchone()[0] == 0:
+            date_str = datetime.now().strftime("%B %d, %Y - %I:%M %p")
+            dummy_text = (
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+                "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. "
+                "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip."
+            )
+            cursor.execute(
+                "INSERT INTO posts (content, created_at) VALUES (?, ?)",
+                (dummy_text, date_str),
+            )
+        conn.commit()
+
 
 @app.route("/")
 def index():
-    index_path = os.path.join(BASE_DIR, "index.html")
-    if os.path.exists(index_path):
-        return send_file(index_path)
-    abort(404)
+    return render_template_string(HTML_TEMPLATE)
 
-@app.route("/api/verify-doors", methods=["POST"])
-def verify_doors():
-    data = request.get_json() or {}
-    # Convert 'l' or '|' back to 'i' for validation
-    raw_word = data.get("incantation", "").strip().lower()
-    normalized_word = raw_word.replace("|", "i").replace("l", "i")
 
-    if normalized_word == "friend":
-        session["unlocked"] = True
-        return jsonify({"success": True, "redirect": "/api/basepics"})
+@app.route("/api/post", methods=["GET"])
+def get_post():
+    """Fetch the main post and its threaded comments."""
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    return jsonify({"success": False, "message": "The stone remains silent."}), 401
+        cursor.execute(
+            "SELECT id, content, created_at FROM posts ORDER BY id ASC LIMIT 1"
+        )
+        post = cursor.fetchone()
 
-@app.route("/basepics/<filename>")
-@require_unlocked
-def serve_basepic(filename):
-    file_path = os.path.join(BASEPICS_DIR, filename)
-    if os.path.isfile(file_path) and os.path.commonpath([BASEPICS_DIR, file_path]) == BASEPICS_DIR:
-        return send_file(file_path)
-    abort(404)
+        if not post:
+            return jsonify({"error": "Post not found"}), 404
 
-@app.route("/api/basepics")
-@require_unlocked
-def list_basepics():
-    if not os.path.exists(BASEPICS_DIR):
-        return jsonify([])
-    valid_extensions = ('.png', '.jpg', '.jpeg', '.webp')
-    images = [
-        f for f in os.listdir(BASEPICS_DIR) 
-        if f.lower().endswith(valid_extensions)
-    ]
-    return jsonify(images)
+        cursor.execute(
+            "SELECT id, parent_id, content, created_at FROM comments WHERE post_id = ? ORDER BY id ASC",
+            (post["id"],),
+        )
+        comments = [dict(row) for row in cursor.fetchall()]
 
-@app.route("/<path:filename>")
-def serve_html(filename):
-    if filename.endswith('.html'):
-        return redirect(f"/{filename[:-5]}", code=301)
-    
-    html_file = f"{filename}.html"
-    file_path = os.path.join(BASE_DIR, html_file)
-    
-    if os.path.isfile(file_path) and os.path.commonpath([BASE_DIR, file_path]) == BASE_DIR:
-        return send_file(file_path)
-    
-    direct_path = os.path.join(BASE_DIR, filename)
-    if os.path.isfile(direct_path) and os.path.commonpath([BASE_DIR, direct_path]) == BASE_DIR:
-        return send_file(direct_path)
-    
-    abort(404)
+    return jsonify(
+        {
+            "post": dict(post),
+            "comments": build_comment_tree(comments),
+        }
+    )
+
+
+@app.route("/api/comment", methods=["POST"])
+def add_comment():
+    """Add a new root comment or reply to an existing comment."""
+    data = request.json or {}
+    post_id = data.get("post_id")
+    parent_id = data.get("parent_id")  # Can be None/null for root comments
+    content = data.get("content", "").strip()
+
+    if not content or not post_id:
+        return jsonify({"error": "Content and post_id are required"}), 400
+
+    date_str = datetime.now().strftime("%B %d, %Y - %I:%M %p")
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO comments (post_id, parent_id, content, created_at) VALUES (?, ?, ?, ?)",
+            (post_id, parent_id, content, date_str),
+        )
+        conn.commit()
+
+    return jsonify({"status": "success"}), 201
+
+
+def build_comment_tree(comments):
+    """Helper to structure flat database list into a nested tree."""
+    comment_dict = {c["id"]: {**c, "children": []} for c in comments}
+    tree = []
+
+    for c in comment_dict.values():
+        parent_id = c["parent_id"]
+        if parent_id and parent_id in comment_dict:
+            comment_dict[parent_id]["children"].append(c)
+        else:
+            tree.append(c)
+
+    return tree
+
+
+# Integrated HTML/CSS/JS frontend template
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post & Comment System</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+        }
+
+        /* Post & Comment Rectangles */
+        .card {
+            background-color: #ffffff;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+            margin-bottom: 12px; /* Small gap between elements */
+        }
+
+        .post-card {
+            border-left: 4px solid #0066cc;
+        }
+
+        .date {
+            font-size: 0.82rem;
+            color: #6a737d;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .content {
+            font-size: 0.98rem;
+            color: #24292e;
+            line-height: 1.5;
+            margin: 0 0 12px 0;
+        }
+
+        /* Threading & Nesting Indentation */
+        .comments-container {
+            margin-top: 16px;
+        }
+
+        .comment-node {
+            margin-bottom: 8px; /* Small gap between siblings */
+        }
+
+        .nested-comments {
+            margin-left: 28px; /* Visual indentation for replies */
+            border-left: 2px solid #e1e4e8;
+            padding-left: 12px;
+        }
+
+        /* Form Controls */
+        textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 10px;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            resize: vertical;
+            font-family: inherit;
+            margin-bottom: 8px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
+        }
+
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 500;
+        }
+
+        button:hover { background-color: #0052a3; }
+        
+        .btn-reply {
+            background: none;
+            color: #0066cc;
+            padding: 0;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        
+        .btn-reply:hover {
+            background: none;
+            text-decoration: underline;
+        }
+
+        .reply-form {
+            margin-top: 10px;
+            display: none;
+        }
+
+        .reply-form.active { display: block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Main Post Box -->
+    <div id="post-target"></div>
+
+    <!-- Main Comment Input Box -->
+    <div class="card">
+        <textarea id="main-comment-input" placeholder="Write a comment..."></textarea>
+        <button onclick="submitComment(null, 'main-comment-input')">Post Comment</button>
+    </div>
+
+    <!-- Tree of Threaded Comments -->
+    <div class="comments-container" id="comments-target"></div>
+</div>
+
+<script>
+    let currentPostId = null;
+
+    async function loadData() {
+        const response = await fetch('/api/post');
+        const data = await response.json();
+        
+        currentPostId = data.post.id;
+        
+        // Render Post
+        document.getElementById('post-target').innerHTML = `
+            <div class="card post-card">
+                <span class="date">${data.post.created_at}</span>
+                <p class="content">${escapeHtml(data.post.content)}</p>
+            </div>
+        `;
+
+        // Render Comments
+        const commentsContainer = document.getElementById('comments-target');
+        commentsContainer.innerHTML = renderCommentsTree(data.comments);
+    }
+
+    function renderCommentsTree(comments) {
+        if (!comments || comments.length === 0) return '';
+        
+        return comments.map(comment => `
+            <div class="comment-node">
+                <div class="card">
+                    <span class="date">${comment.created_at}</span>
+                    <p class="content">${escapeHtml(comment.content)}</p>
+                    <button class="btn-reply" onclick="toggleReplyForm(${comment.id})">Reply</button>
+
+                    <div class="reply-form" id="reply-form-${comment.id}">
+                        <textarea id="reply-input-${comment.id}" placeholder="Write a reply..."></textarea>
+                        <button onclick="submitComment(${comment.id}, 'reply-input-${comment.id}')">Submit Reply</button>
+                    </div>
+                </div>
+                
+                <!-- Indented Child Comments Container -->
+                <div class="nested-comments">
+                    ${renderCommentsTree(comment.children)}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function toggleReplyForm(commentId) {
+        const form = document.getElementById(`reply-form-${commentId}`);
+        form.classList.toggle('active');
+    }
+
+    async function submitComment(parentId, inputId) {
+        const inputElem = document.getElementById(inputId);
+        const content = inputElem.value;
+
+        if (!content.trim()) return;
+
+        const response = await fetch('/api/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                post_id: currentPostId,
+                parent_id: parentId,
+                content: content
+            })
+        });
+
+        if (response.ok) {
+            inputElem.value = '';
+            loadData(); // Refresh UI
+        }
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Initial load
+    loadData();
+</script>
+
+</body>
+</html>
+"""
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    init_db()
+    app.run(debug=True, port=5000)
