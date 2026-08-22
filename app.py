@@ -7,7 +7,6 @@ DB_NAME = "comments.db"
 
 
 def init_db():
-    """Ensure database and tables are created before processing requests."""
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -24,23 +23,17 @@ def init_db():
             CREATE TABLE IF NOT EXISTS comments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 post_id INTEGER NOT NULL,
-                parent_id INTEGER,
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                FOREIGN KEY (post_id) REFERENCES posts (id),
-                FOREIGN KEY (parent_id) REFERENCES comments (id)
+                FOREIGN KEY (post_id) REFERENCES posts (id)
             )
         """
         )
 
         cursor.execute("SELECT COUNT(*) FROM posts")
         if cursor.fetchone()[0] == 0:
-            date_str = datetime.now().strftime("%B %d, %Y - %I:%M %p")
-            dummy_text = (
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-                "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. "
-                "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip."
-            )
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            dummy_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor."
             cursor.execute(
                 "INSERT INTO posts (content, created_at) VALUES (?, ?)",
                 (dummy_text, date_str),
@@ -48,7 +41,6 @@ def init_db():
         conn.commit()
 
 
-# Run DB initialization immediately when app module loads (Crucial for Gunicorn/Fly.io)
 init_db()
 
 
@@ -72,7 +64,7 @@ def get_post():
             return jsonify({"error": "Post not found"}), 404
 
         cursor.execute(
-            "SELECT id, parent_id, content, created_at FROM comments WHERE post_id = ? ORDER BY id ASC",
+            "SELECT id, content, created_at FROM comments WHERE post_id = ? ORDER BY id ASC",
             (post["id"],),
         )
         comments = [dict(row) for row in cursor.fetchall()]
@@ -80,7 +72,7 @@ def get_post():
     return jsonify(
         {
             "post": dict(post),
-            "comments": build_comment_tree(comments),
+            "comments": comments,
         }
     )
 
@@ -89,156 +81,43 @@ def get_post():
 def add_comment():
     data = request.json or {}
     post_id = data.get("post_id")
-    parent_id = data.get("parent_id")
     content = data.get("content", "").strip()
 
     if not content or not post_id:
-        return jsonify({"error": "Content and post_id are required"}), 400
+        return jsonify({"error": "Content and post_id required"}), 400
 
-    date_str = datetime.now().strftime("%B %d, %Y - %I:%M %p")
+    date_str = datetime.now().strftime("%Y-%m-%d")
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO comments (post_id, parent_id, content, created_at) VALUES (?, ?, ?, ?)",
-            (post_id, parent_id, content, date_str),
+            "INSERT INTO comments (post_id, content, created_at) VALUES (?, ?, ?)",
+            (post_id, content, date_str),
         )
         conn.commit()
 
     return jsonify({"status": "success"}), 201
 
 
-def build_comment_tree(comments):
-    comment_dict = {c["id"]: {**c, "children": []} for c in comments}
-    tree = []
-
-    for c in comment_dict.values():
-        parent_id = c["parent_id"]
-        if parent_id and parent_id in comment_dict:
-            comment_dict[parent_id]["children"].append(c)
-        else:
-            tree.append(c)
-
-    return tree
-
-
 HTML_TEMPLATE = """
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Post & Comments</title>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            background-color: #f4f6f8;
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 650px;
-        }
-
-        .card {
-            background-color: #ffffff;
-            border: 1px solid #e1e4e8;
-            border-radius: 8px;
-            padding: 18px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            margin-bottom: 10px;
-        }
-
-        .post-card {
-            border-left: 4px solid #0066cc;
-        }
-
-        .date {
-            font-size: 0.8rem;
-            color: #6a737d;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .content {
-            font-size: 0.95rem;
-            color: #24292e;
-            line-height: 1.5;
-            margin: 0 0 10px 0;
-        }
-
-        .nested-comments {
-            margin-left: 24px;
-            border-left: 2px solid #e1e4e8;
-            padding-left: 10px;
-        }
-
-        textarea {
-            width: 100%;
-            min-height: 60px;
-            padding: 10px;
-            border: 1px solid #d1d5da;
-            border-radius: 6px;
-            resize: vertical;
-            font-family: inherit;
-            margin-bottom: 8px;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #0066cc;
-        }
-
-        button {
-            background-color: #0066cc;
-            color: white;
-            border: none;
-            padding: 7px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        button:hover { background-color: #0052a3; }
-
-        .btn-reply {
-            background: none;
-            color: #0066cc;
-            padding: 0;
-            font-size: 0.82rem;
-        }
-
-        .btn-reply:hover {
-            background: none;
-            text-decoration: underline;
-        }
-
-        .reply-form {
-            margin-top: 10px;
-            display: none;
-        }
-
-        .reply-form.active { display: block; }
-    </style>
+    <title>Geometric Rectangles</title>
 </head>
 <body>
 
-<div class="container">
-    <div id="post-target">Loading...</div>
+<div id="post-target"></div>
 
-    <div class="card">
-        <textarea id="main-comment-input" placeholder="Write a comment..."></textarea>
-        <button onclick="submitComment(null, 'main-comment-input')">Comment</button>
-    </div>
-
-    <div class="comments-container" id="comments-target"></div>
+<div>
+    <textarea id="comment-input" rows="3" cols="50"></textarea><br>
+    <button onclick="submitComment()">Submit</button>
 </div>
+
+<br>
+
+<div id="comments-target"></div>
 
 <script>
     let currentPostId = null;
@@ -246,59 +125,36 @@ HTML_TEMPLATE = """
     async function loadData() {
         try {
             const response = await fetch('/api/post');
-            if (!response.ok) throw new Error("Failed to fetch post");
-            
             const data = await response.json();
             currentPostId = data.post.id;
-            
-            document.getElementById('post-target').innerHTML = `
-                <div class="card post-card">
-                    <span class="date">${data.post.created_at}</span>
-                    <p class="content">${escapeHtml(data.post.content)}</p>
-                </div>
-            `;
 
-            document.getElementById('comments-target').innerHTML = renderCommentsTree(data.comments);
+            // Render post inside a geometric SVG rectangle with date bottom-right
+            document.getElementById('post-target').innerHTML = createSvgRectangle(data.post.content, data.post.created_at, 0);
+
+            // Render comments as indented geometric SVG rectangles with dates bottom-right
+            const commentsContainer = document.getElementById('comments-target');
+            commentsContainer.innerHTML = data.comments.map(c => createSvgRectangle(c.content, c.created_at, 40)).join('<br>');
         } catch (err) {
             console.error(err);
-            document.getElementById('post-target').innerHTML = `<div class="card">Error loading post.</div>`;
         }
     }
 
-    function renderCommentsTree(comments) {
-        if (!comments || comments.length === 0) return '';
-        
-        return comments.map(comment => `
-            <div class="comment-node">
-                <div class="card">
-                    <span class="date">${comment.created_at}</span>
-                    <p class="content">${escapeHtml(comment.content)}</p>
-                    <button class="btn-reply" onclick="toggleReplyForm(${comment.id})">Reply</button>
-
-                    <div class="reply-form" id="reply-form-${comment.id}">
-                        <textarea id="reply-input-${comment.id}" placeholder="Write a reply..."></textarea>
-                        <button onclick="submitComment(${comment.id}, 'reply-input-${comment.id}')">Submit Reply</button>
-                    </div>
-                </div>
-                
-                <div class="nested-comments">
-                    ${renderCommentsTree(comment.children)}
-                </div>
-            </div>
-        `).join('');
+    function createSvgRectangle(text, date, xOffset) {
+        return `
+            <svg width="500" height="120" viewBox="0 0 500 120">
+                <g transform="translate(${xOffset}, 0)">
+                    <rect x="0" y="0" width="${460 - xOffset}" height="100" fill="none" stroke="black" stroke-width="2" />
+                    <text x="15" y="35" font-family="sans-serif" font-size="14">${escapeHtml(text)}</text>
+                    <text x="${445 - xOffset}" y="85" text-anchor="end" font-family="sans-serif" font-size="12">${escapeHtml(date)}</text>
+                </g>
+            </svg>
+        `;
     }
 
-    function toggleReplyForm(commentId) {
-        const form = document.getElementById(`reply-form-${commentId}`);
-        form.classList.toggle('active');
-    }
-
-    async function submitComment(parentId, inputId) {
+    async function submitComment() {
         if (!currentPostId) return;
-
-        const inputElem = document.getElementById(inputId);
+        const inputElem = document.getElementById('comment-input');
         const content = inputElem.value;
-
         if (!content.trim()) return;
 
         const response = await fetch('/api/comment', {
@@ -306,7 +162,6 @@ HTML_TEMPLATE = """
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 post_id: currentPostId,
-                parent_id: parentId,
                 content: content
             })
         });
