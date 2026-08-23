@@ -8,7 +8,7 @@ app = FastAPI(title="Static File Server")
 
 # Define directory paths
 BASE_DIR = Path(__file__).resolve().parent
-MAIN_DIR = BASE_DIR / "main"
+MAIN_DIR = BASE_DIR
 BASEPICS_DIR = BASE_DIR / "basepics"
 
 # Ensure directories exist
